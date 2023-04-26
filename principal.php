@@ -9,13 +9,13 @@
 	$primeiroNome   = $_SESSION['sTX_PRIMEIRO_NOME'];
 	$segundoNome    = $_SESSION['sTX_SEGUNDO_NOME'];
 
-	#recebe mes-ano filtro. Se não houver, passa o mês atual
+
+	#recebe mes-ano filtro. Se não houver, pega o mês atual
 	if(isset($_GET["mesano"])){
 		$mesano	= $_GET["mesano"];
     }else{
-        $mesano  = '202304';# date_format (new DateTime($time), 'd-m-Y');
+        $mesano  = date_format (new DateTime(), 'Ym'); #'202304';# 
     }
-
 
 	try{
 		$sql = "select 	TO_CHAR(lc.dt_data, 'yyyymm') mesano, 

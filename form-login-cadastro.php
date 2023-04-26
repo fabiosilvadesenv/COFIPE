@@ -238,7 +238,7 @@
 						<div class="row">
 							<div class="col-md-8">
 								<div class="card-box">
-										<form  id="form" name="form" method='post' action='' class="form-horizontal" role="form"  data-parsley-validate novalidate>
+										<form  autocomplete="off" id="form" name="form" method='post' action='' class="form-horizontal" role="form"  data-parsley-validate novalidate>
 											<div class="form-group">
 
 
@@ -279,14 +279,14 @@
 												<div class="form-group row">
 													<label class="col-md-2 control-label" for="categoria">Senha:</label>
 													<div class="col-sm-7">
-														<input name="edtsenha" id="edtsenha" type="password" placeholder=""  value="<?php echo $tx_senha;?>"  required class="form-control">
+														<input autocomplete="off" name="edtsenha" id="edtsenha" type="password" placeholder=""  value="<?php echo $tx_senha;?>"  required class="form-control">
 													</div>
 												</div>
 												
 												<div class="form-group row">
 													<label class="col-md-2 control-label" for="categoria">Confirmar Senha:</label>
 													<div class="col-sm-7">
-														<input data-parsley-equalto="#edtsenha" type="password" required placeholder="" value="<?php echo $tx_senha;?>"  class="form-control" id="hori-pass2">
+														<input autocomplete="off" data-parsley-equalto="#edtsenha" type="password" required placeholder="" value="<?php echo $tx_senha;?>"  class="form-control" id="hori-pass2">
 													</div>
 												</div>
 								

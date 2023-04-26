@@ -8,6 +8,61 @@
 	$loginTipo   	= $_SESSION['sTX_LOGIN_ADM'];
 	$primeiroNome   = $_SESSION['sTX_PRIMEIRO_NOME'];
 	$segundoNome    = $_SESSION['sTX_SEGUNDO_NOME'];
+
+	#recebe mes-ano filtro. Se não houver, passa o mês atual
+	if(isset($_GET["mesano"])){
+		$mesano	= $_GET["mesano"];
+    }else{
+        $mesano  = '202304';# date_format (new DateTime($time), 'd-m-Y');
+    }
+
+
+	try{
+		$sql = "select 	TO_CHAR(lc.dt_data, 'yyyymm') mesano, 
+						sd.vl_total_receita, 
+						sum(lc.vl_valor) as vl_total_despesa,
+						sd.vl_total_receita - sum(lc.vl_valor) as vl_total_diferenca,
+						round((sum(lc.vl_valor) / sd.vl_total_receita ) * 100 , 0) as pc_despesa,
+						100 - round((sum(lc.vl_valor) / sd.vl_total_receita ) * 100 , 0) as pc_receita
+				FROM public.tb_lancamento lc
+					left join tb_conta_despesa 			ds on ds.id_conta_despesa = lc.id_conta_despesa 
+					left join tb_login 					lg on lg.id_login 		  = lc.id_login
+					left join ( select TO_CHAR(rs.dt_data, 'yyyymm') mesano, sum(rs.vl_valor) as vl_total_receita 
+								from tb_conta_receita cr
+									inner join tb_conta_receita_saldo rs on rs.id_conta_receita = cr.id_conta_receita 
+								group by TO_CHAR(rs.dt_data, 'yyyymm') ) sd on sd.mesano = 	TO_CHAR(lc.dt_data, 'yyyymm')
+				where TO_CHAR(lc.dt_data, 'yyyymm') = :anomes
+				group by TO_CHAR(lc.dt_data, 'yyyymm'), sd.vl_total_receita"; 
+					
+				$rs = $db->prepare($sql);
+
+				$rs->bindValue(':anomes', $mesano);
+
+				$rs->execute();
+
+                if ($rs->rowCount() ==1) {
+
+                    $row = $rs->fetch(PDO::FETCH_OBJ);
+                    $totalReceita   = $row->vl_total_receita;
+                    $totalDespesa   = $row->vl_total_despesa;
+                    $totalDiferenca = $row->vl_total_diferenca;
+                    $pcCredito      = $row->pc_despesa;
+                    $pcDebito       = $row->pc_receita;
+
+                }else{
+                    $totalReceita   = '0';
+                    $totalDespesa   = '0';
+                    $totalDiferenca = '0';
+                    $pcCredito      = '0';
+                    $pcDebito       = '0';
+                }																					
+		
+	}catch (Exception  $e){
+		print $e->getMessage();
+		#echo "<script language='javascript' type='text/javascript'>alert('Error:#001 - Entre em contato com o administrador.');</script>";
+	}	
+
+
 ?>
 <!DOCTYPE html>
 <html>
@@ -20,7 +75,7 @@
         <link rel="shortcut icon" href="assets/images/cofipe.ico">
 
         <title>COFIPE</title>
-
+  
         <link href="assets/plugins/switchery/switchery.min.css" rel="stylesheet" />
 
         <link href="assets/css/bootstrap.min.css" rel="stylesheet" type="text/css">
@@ -153,14 +208,15 @@
                         <div class="row">
                             <div class="col-md-3">
                                 <div class="card-box">
-                                        <form  id="form" name="form" method='post' action='' class="form-horizontal" role="form"  data-parsley-validate novalidate>
+                                        <form  id="form" name="form" method='GET' action='' class="form-horizontal" role="form"  data-parsley-validate novalidate>
                                             <div class="form-group">
                                                 <div class="form-group row">
                                                     <label class="col-md-1 control-label" for="ativo"></label>
                                                     <div class="col-sm-6">
                                                         <?php 
-                                                            $teste = 1;
-                                                            select_box_simples("select 1 as CODIGO, '04/2023'  DESCRICAO from tb_conta_receita ", "$teste",'conta_receita','conta_receita','required');
+                                                            
+                                                            select_box_simples("select distinct TO_CHAR(dt_data, 'yyyymm') codigo , TO_CHAR(dt_data, 'mm/yyyy') descricao
+                                                                                from tb_lancamento", "$mesano",'mesano','mesano','required');
                                                         ?>
                                                        <!--  <span class="font-13 text-muted">Mes/Ano</span> -->
                                                     </div>
@@ -173,20 +229,20 @@
 
                             <div class="col-lg-3 col-md-6">
                                 <div class="widget-simple text-center card-box">
-                                    <h3 class="text-success counter font-bold mt-0">R$ <span class="counter">2.000,00</span></h3>
+                                    <h3 class="text-success counter font-bold mt-0">R$ <span class="counter"><?php  echo $totalReceita; ?></span></h3>
                                     <p class="text-muted mb-0">Total de Receitas</p>
                                 </div>
                             </div>
 
                             <div class="col-lg-3 col-md-6">
                                 <div class="widget-simple text-center card-box">
-                                    <h3 class="text-pink font-bold mt-0">R$ <span class="counter">1.100,00</span></h3>
+                                    <h3 class="text-pink font-bold mt-0">R$ <span class="counter"><?php  echo $totalDespesa; ?></span></h3>
                                     <p class="text-muted mb-0">Total de Despesas</p>
                                 </div>
                             </div>
                             <div class="col-lg-3 col-md-6">
                                 <div class="widget-simple text-center card-box">
-                                    <h3 class="text-inverse font-bold mt-0">R$ <span class="counter">900,00</span></h3>
+                                    <h3 class="text-inverse font-bold mt-0">R$ <span class="counter"><?php  echo $totalDiferenca; ?></span></h3>
                                     <p class="text-muted mb-0">Diferença</p>
                                 </div>
                             </div>
@@ -203,11 +259,11 @@
                                         <ul class="list-inline m-t-15 mb-0">
                                             <li>
                                                 <h5 class="text-muted m-t-20">Crédito(s)</h5>
-                                                <h4 class="text-success font-bold mt-0">2.000,00</h4>
+                                                <h4 class="text-success font-bold mt-0"><?php  echo $totalReceita; ?></h4>
                                             </li>
                                             <li>
                                                 <h5 class="text-muted m-t-20">Débito(s)</h5>
-                                                <h4 class="text-pink font-bold mt-0">1.100,00</h4>
+                                                <h4 class="text-pink font-bold mt-0"><?php  echo $totalDespesa; ?></h4>
                                             </li>
                                         </ul>
                                     </div>
@@ -228,51 +284,55 @@
 										</thead>
 										<tbody>													
 											<?php															
-											try{
-												$sql = "SELECT 	lc.id_lancamento, 
-																lc.id_conta_receita, 
-																rc.tx_nome tx_nome_conta_receita,
-																lc.id_conta_despesa, 
-																ds.tx_nome tx_nome_conta_despesa,
-																lc.id_login, 
-																concat(lg.tx_primeiro_nome,' ',lg.tx_segundo_nome) as tx_login_nome,
-																concat('Código:', lc.id_lancamento , ' na Data: ', lc.dt_data::date , ' R$: ', lc.vl_valor   ) as tx_observacao_informativo,
-																lc.tx_observacao, 
-																dt_data,
-																lc.vl_valor    
-														FROM public.tb_lancamento lc
-															inner join tb_conta_receita 		rc on rc.id_conta_receita = lc.id_conta_receita
-														--	left  join tb_conta_receita_saldo 	sd on sd.id_conta_receita = rc.id_conta_receita 
-															inner join tb_conta_despesa 		ds on ds.id_conta_despesa = lc.id_conta_despesa 
-															inner join tb_login 				lg on lg.id_login 		  = lc.id_login "; 
-															
-														$rs = $db->prepare($sql);
-														$rs->execute();
-												
-												#Loop inserir as linhas retornadas banco para tbody datatable.
-												if($rs->execute()){
-													if($rs->rowCount() > 0){
-														while($row = $rs->fetch(PDO::FETCH_OBJ)){														
-															#Início bloco linhas tbody datatable.
-															echo "<tr>";
-															echo "	<td>$row->dt_data</td>";
-															echo "	<td>$row->tx_nome_conta_receita</td>";
-															echo "	<td>$row->tx_nome_conta_despesa</td>";
-															echo "	<td>$row->vl_valor</td>";		
-															echo "	<td>$row->tx_observacao</td>";																		
-															
-															#is_numeric($id)
-															#$parametro = mysql_real_escape_string($_GET['nome']); sha1() 
-															#fim bloco linhas tbody datatable.
-															echo"</tr> ";
-														}
-													}       
-												}																						
-												
-											}catch (Exception  $e){
-												print $e->getMessage();
-												#echo "<script language='javascript' type='text/javascript'>alert('Error:#001 - Entre em contato com o administrador.');</script>";
-											}											
+                                                try{
+                                                    $sql = "SELECT 	lc.id_lancamento, 
+                                                                    lc.id_conta_receita, 
+                                                                    rc.tx_nome tx_nome_conta_receita,
+                                                                    lc.id_conta_despesa, 
+                                                                    ds.tx_nome tx_nome_conta_despesa,
+                                                                    lc.id_login, 
+                                                                    concat(lg.tx_primeiro_nome,' ',lg.tx_segundo_nome) as tx_login_nome,
+                                                                    concat('Código:', lc.id_lancamento , ' na Data: ', lc.dt_data::date , ' R$: ', lc.vl_valor   ) as tx_observacao_informativo,
+                                                                    lc.tx_observacao, 
+                                                                    dt_data,
+                                                                    lc.vl_valor    
+                                                            FROM public.tb_lancamento lc
+                                                                inner join tb_conta_receita 		rc on rc.id_conta_receita = lc.id_conta_receita
+                                                            --	left  join tb_conta_receita_saldo 	sd on sd.id_conta_receita = rc.id_conta_receita 
+                                                                inner join tb_conta_despesa 		ds on ds.id_conta_despesa = lc.id_conta_despesa 
+                                                                inner join tb_login 				lg on lg.id_login 		  = lc.id_login 
+                                                            where TO_CHAR(dt_data, 'yyyymm') = :anomes"; 
+                                                                
+                                                            $rs = $db->prepare($sql);
+
+                                                            $rs->bindValue(':anomes', $mesano);
+
+                                                            $rs->execute();
+                                                    
+                                                    #Loop inserir as linhas retornadas banco para tbody datatable.
+                                                    if($rs->execute()){
+                                                        if($rs->rowCount() > 0){
+                                                            while($row = $rs->fetch(PDO::FETCH_OBJ)){														
+                                                                #Início bloco linhas tbody datatable.
+                                                                echo "<tr>";
+                                                                echo "	<td>$row->dt_data</td>";
+                                                                echo "	<td>$row->tx_nome_conta_receita</td>";
+                                                                echo "	<td>$row->tx_nome_conta_despesa</td>";
+                                                                echo "	<td>$row->vl_valor</td>";		
+                                                                echo "	<td>$row->tx_observacao</td>";																		
+                                                                
+                                                                #is_numeric($id)
+                                                                #$parametro = mysql_real_escape_string($_GET['nome']); sha1() 
+                                                                #fim bloco linhas tbody datatable.
+                                                                echo"</tr> ";
+                                                            }
+                                                        }       
+                                                    }																						
+                                                    
+                                                }catch (Exception  $e){
+                                                    print $e->getMessage();
+                                                    #echo "<script language='javascript' type='text/javascript'>alert('Error:#001 - Entre em contato com o administrador.');</script>";
+                                                }											
 											?>
 										</tbody>
                                     </table>
@@ -342,11 +402,12 @@
 
 
         <script type="text/javascript">
+
             $( document ).ready(function() {
 
                 var DrawSparkline = function() {
 
-                    $('#sparkline3').sparkline([55, 45], {
+                    $('#sparkline3').sparkline([<?php  echo $pcCredito; ?>, <?php  echo $pcDebito; ?>], {
                         type:   'pie',
                         width:  '200',
                         height: '200',
@@ -357,6 +418,23 @@
 
                 DrawSparkline();
             });
+
+			$("#form").on('submit', function(e) {
+				const $form = $(this);
+
+				e.preventDefault();
+
+				$form.parsley().validate();
+
+				if ($form.parsley().isValid()) {
+				  retornar();
+				}
+			});
+			
+			function retornar(){
+				location.href = "principal.php?mesano="+$('#mesano').val()
+			}
+
         </script>
 
 
